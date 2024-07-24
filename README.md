@@ -30,7 +30,7 @@ Run the background hasher:
 
 ```sh
 python background_hashing.py
-
+```
 How to Use
 
     The service will start and begin hashing all files in the specified directory (WATCH_PATH).
@@ -44,5 +44,3 @@ Database Schema
     error_files: Stores the paths of files that encountered read errors along with the error messages.
 
 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
