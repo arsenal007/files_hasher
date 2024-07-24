@@ -24,7 +24,7 @@ You can install the required packages using pip:
 
 ```sh
 pip install tqdm watchdog pystray pillow
-
+```
 
 Run the background hasher:
 
