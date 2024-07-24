@@ -3,7 +3,7 @@
 
 #### `background_hashing.py`
 
-```python
+#```python
 import os
 import gc
 import threading
