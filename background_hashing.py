@@ -1,9 +1,3 @@
-
-### Comments in the Code
-
-#### `background_hashing.py`
-
-#```python
 import os
 import gc
 import threading
@@ -13,7 +7,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import Icon, Menu, MenuItem
 from PIL import Image, ImageDraw
-from utils.database import create_database, save_hashes_to_db, save_zero_size_files, save_error_files
+from utils.database import create_database, save_hashes_to_db, save_zero_size_files, save_error_files, get_file_info_from_db, delete_nonexistent_files
 from utils.hashing import hash_file
 
 DB_PATH = 'file_hashes.db'
@@ -22,16 +16,6 @@ BATCH_SIZE = 8192
 
 processed_files_count = 0
 total_files_count = 0
-
-def get_folder_size(folder):
-    """Calculate the total size of the folder."""
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(folder):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            if os.path.exists(fp):
-                total_size += os.path.getsize(fp)
-    return total_size
 
 def update_tooltip(icon):
     """Update the tooltip of the system tray icon with the progress information."""
@@ -51,12 +35,22 @@ def process_files_batch(files, db_path, icon):
 
     for file_path in files:
         if not os.path.exists(file_path):
+            delete_nonexistent_files([file_path], db_path)
             continue
         file_size = os.path.getsize(file_path)
         last_modified = os.path.getmtime(file_path)
+
+        # Check if file hash already exists in the database
+        existing_info = get_file_info_from_db(db_path, file_path)
+        if existing_info and existing_info[2] == file_size and existing_info[3] == last_modified:
+            processed_files_count += 1
+            update_tooltip(icon)
+            continue
+
         if file_size == 0:
             zero_size_files.append((file_path,))
             continue
+
         file_hash, error = hash_file(file_path)
         if file_hash:
             new_hashes.append((file_path, file_hash, file_size, last_modified))
@@ -90,6 +84,12 @@ def scan_files(root_path, db_path, icon):
             process_files_batch(batch, db_path, icon)
             pbar.update(len(batch))
             gc.collect()  # Explicitly call the garbage collector
+
+    # Check for nonexistent files in the database
+    all_files_in_db = get_all_files_from_db(db_path)
+    nonexistent_files = [f for f in all_files_in_db if not os.path.exists(f)]
+    if nonexistent_files:
+        delete_nonexistent_files(nonexistent_files, db_path)
 
 class FileEventHandler(FileSystemEventHandler):
     """Handler for file system events to process created or modified files."""
