@@ -23,6 +23,14 @@ def create_database(db_path):
         error TEXT
     )
     ''')
+    
+    # generic Key Value store for stats/meta
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    ''')
     conn.commit()
     conn.close()
 
@@ -68,10 +76,31 @@ def get_all_files_from_db(db_path):
     conn.close()
     return [row[0] for row in rows]
 
-def delete_nonexistent_files(files, db_path):
+def delete_file_from_db(files, db_path):
     """Delete files from the database that no longer exist on disk."""
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.executemany("DELETE FROM file_hashes WHERE path = ?", [(file,) for file in files])
     conn.commit()
     conn.close()
+
+
+def set_meta(db_path, key, value, ts=None):
+    conn = sqlite3.connect(db_path)
+    if ts is None:
+        # let SQLite set last_updated
+        conn.execute(
+            "INSERT INTO meta(key,value) VALUES(?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value, "
+            "last_updated=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+            (key, value),
+        )
+    else:
+        # app-supplied timestamp
+        conn.execute(
+            "INSERT INTO meta(key,value,last_updated) VALUES(?,?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value, last_updated=excluded.last_updated",
+            (key, value, ts),
+        )
+    conn.commit()
+    
